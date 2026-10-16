@@ -17,12 +17,12 @@ Everything here is derived from the shipped bytes / game disassembly of build 93
 | SDK  | .NET 10 (`net10.0`), `WinExe` output |
 | UI   | Avalonia 12.0.4 + Fluent theme (CommunityToolkit.Mvvm 8.4.1) |
 | OS   | Windows (uses `kernel32.dll` `AttachConsole` for the headless report; the GUI is WinExe) |
-| Granny | `Granny.Sharp` (ProjectReference) is used to decode `.model` files on import |
+| Granny | Bundled source (`Granny.Format`, see §7) — plain `.cs` files compiled into the assembly; **no NuGet package, no ProjectReference** |
 
 ```bat
-cd D2RModelLodDescEditor
-dotnet build -c Debug      REM or Release
-dotnet run --project .     REM launches the GUI
+cd D2RModelLodDescEditor        REM the project folder containing this README
+dotnet build -c Debug           REM or Release
+dotnet run --project .          REM launches the GUI
 ```
 
 Build output: `bin/<config>/net10.0/D2RModelLodDescEditor(.exe)`.
@@ -59,15 +59,17 @@ asset. Re-serializing an untouched pair is **byte-identical** to the shipped fil
 
 | Menu | Action |
 |------|--------|
-| **File → Open manifest .json…** | Loads the `.json` *and* its paired `.bin`. Preferred entry point (the editor needs both halves). |
+| **File → Open manifest .json…** | Loads the `.json` *and* its paired `.bin`. The only open entry point — the editor works on both halves together. |
 | **File → Save** (`Ctrl+S`) | Repacks + writes the `.bin`; writes the manifest next to it when one is loaded. |
 | **File → Save As…** | Choose a target `.bin` (manifest also paired by stem). |
 | **File → Save manifest .json** | Write the in-memory manifest back out (compact single-line JSON, file order, `"lods"` only). Refuses if no manifest was loaded. |
 | **File → Exit** | Closes the main window (app shuts down). |
 
-Opening a `.bin` *without* a sibling `.json` is allowed — you just won't get asset names
-or LOD cross-checks until you load one. A manifest opened without a paired `.bin` is
-*refused* (the editor needs the model data too).
+**Only `File → Open manifest .json…` opens a file** — it also loads the paired `.bin`.
+There is no separate "open .bin" menu item. (In code, `LodDescDocument.Load(bin)` *can*
+load a `.bin` on its own, but without a manifest the assets appear as raw hashes and there
+are no LOD / manifest cross-checks.) A manifest opened without a paired `.bin` is
+*refused* (`LoadPair` throws `FileNotFoundException`).
 
 ### 3.2 Layout
 
@@ -183,8 +185,9 @@ D2RModelLodDescEditor --selftest data_93847/hd/model_lod_desc.bin ^
 `…/data_93847/data/data/hd/…` keeps the `data/hd/` prefix) and stripping the `_lodN`
 suffix; with no `/hd/` present it falls back to `data/hd/<stem>.model`.
 
-Per mesh, `ModelImporter.ParseFiles` (a direct port of the verified offline-writer recipe)
-fills the bin record from the granny `ExtendedData`:
+Per mesh, `ModelImporter.ParseFiles` — a direct port of the probe's verified
+`RegenEngine` decode path (itself derived from the offline writer) — fills the bin record
+from the granny `ExtendedData`:
 
 - bounds `bbMin`/`bbMax` (bitwise),
 - `meshRenderLayer` (default 1),
@@ -304,6 +307,8 @@ A zero-`lodMask` asset has **no** `ModelInfo` run; its rel is dead.
 
 ## 7. Layout / source map
 
+All paths below are relative to this project folder.
+
 | File | Responsibility |
 |------|----------------|
 | `Program.cs` | Entry; `--selftest` dispatch; `WinExe` → `AttachConsole`. |
@@ -314,6 +319,6 @@ A zero-`lodMask` asset has **no** `ModelInfo` run; its rel is dead.
 | `Models/ModelAssetRecord.cs` | 44-B asset record (write-through + pending shadow). |
 | `Models/ModelInfoRecord.cs` | 12-B slot record. |
 | `Models/MeshRecord.cs` | 32-B mesh record. |
-| `Models/ModelImporter.cs` | `.model` → imported model (Granny ExtendedData → bin fields); `GuessKey`. |
+| `Models/ModelImporter.cs` | `.model` → imported model (Granny `ExtendedData` → bin fields); `GuessKey`. |
 | `SelfTest.cs` | Headless format audit (`--selftest`). |
-| `Granny/` | `Granny.Sharp` dependency for decoding `.model` files. |
+| `Granny/` | **Bundled granny `.model` reader source** — plain `.cs` files in namespace `Granny.Format` (e.g. `GrnImage.cs`, `GrnTypeTree.cs`, `GrnObjectWalker.cs`), compiled **directly into the editor assembly** by the SDK's default `**/*.cs` glob. There is **no NuGet package and no `ProjectReference`**; the original external `Granny.Sharp` dependency lives only in the user's separate probe project and was ported in here as source. |
