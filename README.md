@@ -204,17 +204,17 @@ All integers are **little-endian**. Three regions follow a fixed header:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ header  24 B                                                 │
-│   0  u32  modelCount        number of ModelAssetRecord        │
-│   4  i32  modelsRel         (modelsBase) − 4                  │
-│   8  u32  modelInfoCount    number of ModelInfoRecord slots    │
-│  12  i32  infoRel           (infoBase)   − 12                 │
-│  16  u32  meshCount         number of MeshRecord               │
-│  20  i32  meshRel           (meshBase)   − 20                 │
+│ header  24 B                                                │
+│   0  u32  modelCount        number of ModelAssetRecord      │
+│   4  i32  modelsRel         (modelsBase) − 4                │
+│   8  u32  modelInfoCount    number of ModelInfoRecord slots │
+│  12  i32  modelInfoRel      (infoBase)   − 12               │
+│  16  u32  meshCount         number of MeshRecord            │
+│  20  i32  meshRel           (meshBase)   − 20               │
 ├─────────────────────────────────────────────────────────────┤
-│ models[]              44 B each, ascending by hash            │
-│ ModelInfo (slots)      12 B each, per-asset runs              │
-│ ModelCachePerMeshData  32 B each, per-slot runs               │
+│ models[]               44 B each, ascending by hash         │
+│ ModelInfo (slots)      12 B each, per-asset runs            │
+│ ModelCachePerMeshData  32 B each, per-slot runs             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
