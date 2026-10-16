@@ -1,0 +1,22 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="D2RModelLodDescEditor.App"
+             xmlns:local="using:D2RModelLodDescEditor"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+  
+    <Application.Styles>
+        <FluentTheme>
+          <FluentTheme.Palettes>
+            <!-- Palette for Light theme variant -->
+            <ColorPaletteResources x:Key="Light" Accent="Green" RegionColor="White" ErrorText="Red" />
+            <!-- Palette for Dark theme variant -->
+            <ColorPaletteResources x:Key="Dark" Accent="SteelBlue" RegionColor="#141414" ErrorText="Yellow" />
+          </FluentTheme.Palettes>
+        </FluentTheme>
+    </Application.Styles>
+</Application>

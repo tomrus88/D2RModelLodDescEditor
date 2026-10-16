@@ -1,0 +1,234 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:D2RModelLodDescEditor.ViewModels"
+        xmlns:models="using:D2RModelLodDescEditor.Models"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1320" d:DesignHeight="780"
+        x:Class="D2RModelLodDescEditor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding Title}"
+        Width="1320" Height="780">
+
+    <Design.DataContext>
+        <!-- previewer only; the runtime DataContext is set in App.axaml.cs -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}"/>
+    </Window.KeyBindings>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="Open manifest .json ... (loads the paired .bin)" Command="{Binding OpenJsonCommand}"/>
+                <Separator/>
+                <MenuItem Header="Save" Command="{Binding SaveCommand}"/>
+                <MenuItem Header="Save As ..." Command="{Binding SaveAsCommand}"/>
+                <MenuItem Header="Save manifest .json" Command="{Binding SaveManifestCommand}"/>
+                <Separator/>
+                <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Sort models[] by hash" Command="{Binding SortByHashCommand}"/>
+                <MenuItem Header="Recompute AABB from meshes" Command="{Binding RecomputeBoundsCommand}"/>
+                <Separator/>
+                <MenuItem Header="Integrity check ..." Command="{Binding IntegrityCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Theme">
+                <MenuItem Header="System default" Command="{Binding SetThemeCommand}" CommandParameter="Default" IsChecked="{Binding IsThemeDefault}"/>
+                <MenuItem Header="Light" Command="{Binding SetThemeCommand}" CommandParameter="Light" IsChecked="{Binding IsThemeLight}"/>
+                <MenuItem Header="Dark" Command="{Binding SetThemeCommand}" CommandParameter="Dark" IsChecked="{Binding IsThemeDark}"/>
+            </MenuItem>
+        </Menu>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,6" Spacing="6">
+            <TextBox Text="{Binding SearchText, Mode=TwoWay}" Width="320"
+                     PlaceholderText="filter: path substring or 0xHASH"/>
+            <Button Content="Clear" Command="{Binding ClearSearchCommand}"/>
+            <Button Content="Integrity" Command="{Binding IntegrityCommand}"/>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Padding="8,3">
+            <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"/>
+        </Border>
+
+        <Grid ColumnDefinitions="320,260,*">
+            <!-- models[] (virtualized: 14k+ assets) -->
+            <DockPanel Grid.Column="0" Margin="6,0,6,6">
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" FontWeight="Bold"
+                           Text="{Binding Models.Count, StringFormat='models[] ({0})'}"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+                    <Button Content="+ model ..." Command="{Binding AddModelCommand}"/>
+                    <Button Content="- model" Command="{Binding RemoveModelCommand}"/>
+                </StackPanel>
+                <ListBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:ModelAssetRecord">
+                            <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <!-- ModelInfo slots + ModelCachePerMeshData -->
+            <DockPanel Grid.Column="1" Margin="6,0,6,6">
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" FontWeight="Bold"
+                           Text="ModelInfo (LOD slots)"/>
+                <ListBox DockPanel.Dock="Top" Height="200"
+                         ItemsSource="{Binding Slots}" SelectedItem="{Binding SelectedSlot}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:ModelInfoRecord">
+                            <TextBlock Text="{Binding Display}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock DockPanel.Dock="Top" Margin="0,8,0,4" FontWeight="Bold"
+                           Text="{Binding Meshes.Count, StringFormat='ModelCachePerMeshData ({0})'}"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+                    <Button Content="+ mesh" Command="{Binding AddMeshCommand}"/>
+                    <Button Content="- mesh" Command="{Binding RemoveMeshCommand}"/>
+                </StackPanel>
+                <ListBox ItemsSource="{Binding Meshes}" SelectedItem="{Binding SelectedMesh}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:MeshRecord">
+                            <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <!-- record editor -->
+            <ScrollViewer Grid.Column="2" Margin="6,0,6,6">
+                <StackPanel Spacing="8">
+
+                    <GroupBox Header="Model asset (models[i])" IsEnabled="{Binding HasModel}">
+                        <Grid Margin="4" ColumnDefinitions="90,*,90,*"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="hash" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Margin="2" IsReadOnly="True"
+                                     Text="{Binding SelectedModel.HashHex, Mode=TwoWay}"
+                                     ToolTip.Tip="FNV-1a32 of the lowercase manifest key — derived, not editable. Rename a model by removing it and re-adding it under a new key."/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="path (key)" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Margin="8" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding SelectedModel.KeyDisplay}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="boundsMin" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedModel.MinXText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="1" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedModel.MinYText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedModel.MinZText, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="boundsMax" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="2" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedModel.MaxXText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedModel.MaxYText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="3" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedModel.MaxZText, Mode=TwoWay}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="lodMask" VerticalAlignment="Center"/>
+                            <WrapPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3">
+                                <CheckBox Content="L0" Margin="2" IsChecked="{Binding SelectedModel.LodBit0, Mode=TwoWay}"/>
+                                <CheckBox Content="L1" Margin="2" IsChecked="{Binding SelectedModel.LodBit1, Mode=TwoWay}"/>
+                                <CheckBox Content="L2" Margin="2" IsChecked="{Binding SelectedModel.LodBit2, Mode=TwoWay}"/>
+                                <CheckBox Content="L3" Margin="2" IsChecked="{Binding SelectedModel.LodBit3, Mode=TwoWay}"/>
+                                <CheckBox Content="L4" Margin="2" IsChecked="{Binding SelectedModel.LodBit4, Mode=TwoWay}"/>
+                                <CheckBox Content="L5" Margin="2" IsChecked="{Binding SelectedModel.LodBit5, Mode=TwoWay}"/>
+                                <CheckBox Content="L6" Margin="2" IsChecked="{Binding SelectedModel.LodBit6, Mode=TwoWay}"/>
+                                <Border Margin="2" Background="Transparent"
+                                        ToolTip.Tip="Not representable: lodMask is a single byte and LOD i maps to bit (i+1), so L0–L6 (bits 1–7) fit but L7 would need bit 8.">
+                                    <CheckBox Content="L7" IsEnabled="False" IsHitTestVisible="False"/>
+                                </Border>
+                            </WrapPanel>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="lodCount" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Margin="2" VerticalAlignment="Center"
+                                       Text="{Binding SelectedModel.LodCount, StringFormat='{}{0}'}"/>
+                            <TextBlock Grid.Row="5" Grid.Column="2" Text="typeMask" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="5" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedModel.TypeMaskHex, Mode=TwoWay}"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="rel -> slot" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Margin="2" VerticalAlignment="Center"
+                                       Text="{Binding SelectedModel.RelTargetHex}"/>
+                            <TextBlock Grid.Row="6" Grid.Column="2" Grid.ColumnSpan="2" Margin="2"
+                                       TextWrapping="Wrap" Opacity="0.7"
+                                       Text="rel recomputed on repack (zero-LOD assets keep the dead shipped value)"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <GroupBox Header="ModelInfo slot" IsEnabled="{Binding HasSlot}">
+                        <Grid Margin="4" ColumnDefinitions="90,*,90,*"
+                              RowDefinitions="Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="LOD" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Margin="2" VerticalAlignment="Center"
+                                       Text="{Binding SelectedSlot.SlotLod, StringFormat='LOD {0}'}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="flipbook" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="0" Grid.Column="3" Margin="2"
+                                      IsChecked="{Binding SelectedSlot.IsFlipbook, Mode=TwoWay}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="meshes" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Margin="2" VerticalAlignment="Center"
+                                       Text="{Binding SelectedSlot.MeshCount, StringFormat='{}{0}'}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="rel -> mesh" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" Margin="2" VerticalAlignment="Center"
+                                       Text="{Binding SelectedSlot.RelTargetHex}"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <GroupBox Header="Mesh (ModelCachePerMeshData)" IsEnabled="{Binding HasMesh}">
+                        <Grid Margin="4" ColumnDefinitions="90,*,90,*"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="boundsMin" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedMesh.MinXText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="0" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedMesh.MinYText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedMesh.MinZText, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="boundsMax" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedMesh.MaxXText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedMesh.MaxYText, Mode=TwoWay}"/>
+                            <TextBox Grid.Row="2" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedMesh.MaxZText, Mode=TwoWay}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="renderLayer" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedMesh.RenderLayerText, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="boneBindings" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="3" Grid.Column="3" Margin="2"
+                                     Text="{Binding SelectedMesh.BoneBindingsText, Mode=TwoWay}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="influences" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" Margin="2"
+                                     Text="{Binding SelectedMesh.NumBoneInfluencesText, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="2" Text="flags" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Row="4" Grid.Column="3" Orientation="Horizontal">
+                                <CheckBox Content="vertexAlpha" Margin="2"
+                                          IsChecked="{Binding SelectedMesh.HasVertexAlpha, Mode=TwoWay}"/>
+                                <CheckBox Content="rigid" Margin="2"
+                                          IsChecked="{Binding SelectedMesh.IsRigid, Mode=TwoWay}"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Margin="2" Opacity="0.7"
+                                       IsVisible="{Binding SelectedMesh.IsPending}"
+                                       Text="pending record — materializes into the file on save"/>
+                        </Grid>
+                    </GroupBox>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>
